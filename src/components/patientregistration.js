@@ -3,6 +3,11 @@ import axios from "axios";
 import { format } from "date-fns";
 import config from "../config";
 import _ from "lodash";
+import profile from "../../src/logo/pr.jpg";
+import logo from "../../src/logo/logo1.png";
+import { useReactToPrint } from "react-to-print";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHistory } from '@fortawesome/free-solid-svg-icons';
 
 const LoadingSpinner = () => (
   <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center flex items-center bg-blue-500 p-2 rounded-lg shadow-lg">
@@ -12,6 +17,7 @@ const LoadingSpinner = () => (
 );
 
 const CheckboxApp = ({ uhid }) => {
+  const componentRef = useRef();
   const [title, setTitle] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -26,9 +32,9 @@ const CheckboxApp = ({ uhid }) => {
   const [street1, setStreet1] = useState("");
   const [street2, setStreet2] = useState("");
   const [cityVillage, setCityVillage] = useState("");
+  const [country, setCountry] = useState("India");
+  const [state, setState] = useState("Tamil Nadu");
   const [district, setDistrict] = useState("");
-  const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
   const [registrationDate, setRegistrationDate] = useState(getCurrentDate());
 
   const [uhidInput, setUhidInput] = useState("");
@@ -63,7 +69,14 @@ const CheckboxApp = ({ uhid }) => {
   const [showPatientsTable, setShowPatientsTable] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showInputs, setShowInputs] = useState(false);
-
+  const [multiplePatients, setMultiplePatients] = useState(null);
+  const[tablehide,setTablehide]=useState(false);
+  const [selectedPatientUHID, setSelectedPatientUHID] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [filteredPatients, setFilteredPatients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   function getCurrentDate() {
     const today = new Date();
@@ -113,74 +126,7 @@ const CheckboxApp = ({ uhid }) => {
       "Viluppuram",
       "Virudhunagar",
     ],
-    Kerala: [
-      "Alappuzha",
-      "Ernakulam",
-      "Idukki",
-      "Kannur",
-      "Kasaragod",
-      "Kollam",
-      "Kottayam",
-      "Kozhikode",
-      "Malappuram",
-      "Palakkad",
-      "Pathanamthitta",
-      "Thiruvananthapuram",
-      "Thrissur",
-      "Wayanad",
-    ],
-    Maharashtra: [
-      "Ahmednagar",
-      "Akola",
-      "Amravati",
-      "Aurangabad",
-      "Beed",
-      "Bhandara",
-      "Buldhana",
-      "Chandrapur",
-      "Dhule",
-      "Gadchiroli",
-      "Gondia",
-      "Hingoli",
-      "Jalgaon",
-      "Jalna",
-      "Kolhapur",
-      "Latur",
-      "Mumbai City",
-      "Mumbai Suburban",
-      "Nagpur",
-      "Nanded",
-      "Nandurbar",
-      "Nashik",
-      "Osmanabad",
-      "Palghar",
-      "Parbhani",
-      "Pune",
-      "Raigad",
-      "Ratnagiri",
-      "Sangli",
-      "Satara",
-      "Sindhudurg",
-      "Solapur",
-      "Thane",
-      "Wardha",
-      "Washim",
-      "Yavatmal",
-    ],
-    "Andhra Pradesh": [
-      "Anantapur",
-      "Chittoor",
-      "East Godavari",
-      "Guntur",
-      "Krishna",
-      "Kurnool",
-      "Prakasam",
-      "Srikakulam",
-      "Visakhapatnam",
-      "Vizianagaram",
-      "West Godavari",
-      "YSR Kadapa",
-    ],
+
   };
 
   useEffect(() => {
@@ -211,11 +157,56 @@ const CheckboxApp = ({ uhid }) => {
       }
     }
   }, [dob, ageUnit]);
+  useEffect(() => {
+    const delay = 1000; // Adjust the delay according to your preferences
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`${config.apiUrl}/registration/patient/namesearch?name=${searchTerm}`);
+        if (response.ok) {
+          const searchResults = await response.json();
+          setSearchResults(searchResults);
+        } else {
+          console.error('Failed to fetch search results');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }, delay);
+
+    // Clear the previous timeout to prevent multiple API calls
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
 
   useEffect(() => {
     const currentDate = getCurrentDate();
     setRegistrationDate(currentDate);
   }, []);
+  const fetchPatientHistory = async () => {
+    try {
+      const response = await fetch(`${config.apiUrl}/registration/patient/all`);
+      if (!response.ok) {
+        throw new Error('Error fetching patient history');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching patient history:', error);
+      throw error; // Rethrow the error for the caller to handle
+    }
+  };
+
+  const openHistory = async () => {
+    try {
+      const data = await fetchPatientHistory();
+      setPatientHistory(data);
+      setShowHistory(true);
+    } catch (error) {
+     
+      console.error('Failed to fetch patient history:', error);
+    }
+  };
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
@@ -242,13 +233,33 @@ const CheckboxApp = ({ uhid }) => {
   const handleDobChange = (event) => {
     const selectedDate = new Date(event.target.value);
     const currentDate = new Date();
-
+  
+    // Check if the selected date is beyond the current date
     if (selectedDate > currentDate) {
-      setDob(0);
-      setAgeUnit("years");
+      // If it is, set the date to the current date
+      setDob('');
+      setAgeUnit('years')
       setAge(0);
     } else {
       setDob(event.target.value);
+  
+      // Calculate age based on the selected date
+      const ageDifferenceInDays = Math.floor((currentDate - selectedDate) / (1000 * 60 * 60 * 24));
+      const ageDifferenceInMonths = (currentDate.getMonth() - selectedDate.getMonth()) +
+        12 * (currentDate.getFullYear() - selectedDate.getFullYear());
+      const ageDifferenceInYears = currentDate.getFullYear() - selectedDate.getFullYear();
+  
+      // Automatically set the appropriate age unit
+      if (ageDifferenceInDays < 30) {
+        setAgeUnit("days");
+        setAge(ageDifferenceInDays);
+      } else if (ageDifferenceInMonths < 12) {
+        setAgeUnit("months");
+        setAge(ageDifferenceInMonths);
+      } else {
+        setAgeUnit("years");
+        setAge(ageDifferenceInYears);
+      }
     }
   };
 
@@ -267,7 +278,6 @@ const CheckboxApp = ({ uhid }) => {
 
   const handleAgeChange = (event) => {
     const inputAge = parseInt(event.target.value, 10);
-    const currentDate = new Date();
 
     if (!isNaN(inputAge) && inputAge >= 0) {
       setAge(inputAge);
@@ -280,32 +290,6 @@ const CheckboxApp = ({ uhid }) => {
     const selectedAgeUnit = event.target.value;
     setAgeUnit(selectedAgeUnit);
 
-    if (dob) {
-      const birthDate = new Date(dob);
-      const currentDate = new Date();
-
-      switch (selectedAgeUnit) {
-        case "days":
-          const ageDifferenceInDays = Math.floor(
-            (currentDate - birthDate) / (1000 * 60 * 60 * 24)
-          );
-          setAge(ageDifferenceInDays);
-          break;
-        case "months":
-          const ageDifferenceInMonths =
-            currentDate.getMonth() -
-            birthDate.getMonth() +
-            12 * (currentDate.getFullYear() - birthDate.getFullYear());
-          setAge(ageDifferenceInMonths);
-          break;
-        case "years":
-        default:
-          const ageDifferenceInYears =
-            currentDate.getFullYear() - birthDate.getFullYear();
-          setAge(ageDifferenceInYears);
-          break;
-      }
-    }
   };
 
   const handleGenderChange = (event) => {
@@ -352,8 +336,8 @@ const CheckboxApp = ({ uhid }) => {
     setCityVillage("");
     setMobileNumber("");
     setDistrict("");
-    setState("");
-    setCountry("");
+    setState("Tamil Nadu");
+    setCountry("India");
     setAadhaarNumber("");
     setIsAllAre(false);
     setShowUpdateSuccessMessage(false);
@@ -362,15 +346,14 @@ const CheckboxApp = ({ uhid }) => {
     setShowIdCard(false);
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write("<html><head><title>ID Card</title>");
-    printWindow.document.write("</head><body>");
-    printWindow.document.write(printRef.current.innerHTML);
-    printWindow.document.write("</body></html>");
-    printWindow.document.close();
-    printWindow.print();
-  };
+
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+    documentTitle: "ID Card",
+  });
+  
+  
+  
 
   const handleSubmit = () => {
     if (
@@ -452,12 +435,17 @@ const CheckboxApp = ({ uhid }) => {
       },
       body: JSON.stringify(formData),
     })
-      .then((response) => {
-        if (!response.ok) {
+    .then(response => {
+      if (!response.ok) {
+        console.log(response); 
+        if (response.status === 400) {
+          throw new Error('Aadhar number already exists');
+        } else {
           throw new Error(`Server error: ${response.status}`);
         }
-        return response.json();
-      })
+      }
+      return response.json();
+    })
       .then((data) => {
         const { uhid } = data;
 
@@ -497,24 +485,27 @@ const CheckboxApp = ({ uhid }) => {
           }, 4000);
         }
       })
-      .catch((error) => {
-        console.error("Error:", error);
-
+      .catch(error => {
+        console.error('Error:', error);
         if (error instanceof Error) {
-          console.error("Server response:", error.message);
-          setAlertMessage(error.message);
+          if (error.response && error.response.status === 400) {
+            setAlertMessage('Aadhar number already exists');
+          } else {
+            console.error('Server response:', error.message);
+            setAlertMessage(error.message);
+          }
+          setShowAlert(true);
         } else {
-          setAlertMessage("Unknown error occurred");
+          setAlertMessage('Unknown error occurred');
+          setShowAlert(true);
         }
-
-        setShowAlert(true);
         setSubmitDisabled(true);
-
         setTimeout(() => {
           setSubmitDisabled(false);
           setShowAlert(false);
         }, 2000);
       });
+      
   };
 
   const handleSaveChanges = async () => {
@@ -547,9 +538,14 @@ const CheckboxApp = ({ uhid }) => {
       setSubmitDisabled(true);
 
       if (!uhidInput && !mobileNumberInput) {
-        console.error(
-          "Either UHID or Mobile Number is required for saving changes"
-        );
+        setShowRedBorders1(true)
+
+        setTimeout(() => {
+          // setShowAlert(false);
+          // setAlertMessage('');
+          setShowRedBorders1(false);
+          setSubmitDisabled(false);
+        }, 2000);
         return;
       }
 
@@ -568,50 +564,52 @@ const CheckboxApp = ({ uhid }) => {
     
 
       const isDataChanged =
-        title !== patientData.Title ||
-        firstName !== patientData.first_Name ||
-        lastName !== patientData.last_Name ||
-        fatherName !== patientData.father_name ||
-        dob !==
-          (patientData.date_of_birth
-            ? format(new Date(patientData.date_of_birth), "yyyy-MM-dd")
-            : null) ||
-        age !== patientData.age ||
-        ageUnit !== patientData.age_Unit ||
-        gender !== patientData.gender ||
-        mobileNumber !== patientData.Mobile_number ||
-        aadhaarNumber !== patientData.aadhar_number ||
-        street1 !== patientData.street1 ||
-        street2 !== patientData.street2 ||
-        cityVillage !== patientData.city_village ||
-        district !== patientData.district ||
-        state !== patientData.state ||
-        country !== patientData.country ||
-        registrationDate !==
-          (patientData.registration_date
-            ? format(new Date(patientData.registration_date), "yyyy-MM-dd")
-            : "");
+  title !== patientData.Title ||
+  firstName !== patientData.first_Name ||
+  lastName !== patientData.last_Name ||
+  fatherName !== patientData.father_name ||
+  dob !==
+    (patientData.date_of_birth
+      ? format(new Date(patientData.date_of_birth), "yyyy-MM-dd")
+      : null) ||
+  age !== patientData.age ||
+  ageUnit !== patientData.age_Unit ||
+  gender !== patientData.gender ||
+  mobileNumber !== patientData.Mobile_number ||
+  street1 !== patientData.street1 ||
+  street2 !== patientData.street2 ||
+  cityVillage !== patientData.city_village ||
+  district !== patientData.district ||
+  state !== patientData.state ||
+  country !== patientData.country ||
+  registrationDate !==
+    (patientData.registration_date
+      ? format(new Date(patientData.registration_date), "yyyy-MM-dd")
+      : "");
 
-      const identifier = uhidInput || mobileNumberInput;
 
+   
+      const identifier = selectedPatient.uhid
+      console.log(identifier);
       const updatedData = {
-        Title: title,
-        first_Name: firstName,
-        last_Name: lastName,
-        father_name: fatherName,
-        date_of_birth: dob || null,
-        age: age,
-        age_Unit: ageUnit,
-        gender: gender,
-        Mobile_number: mobileNumber,
-        aadhar_number: aadhaarNumber,
-        street1: street1,
-        street2: street2,
-        city_village: cityVillage,
-        district: district,
-        state: state,
-        country: country,
+        Title: title || (selectedPatient && selectedPatient.Title) || '',
+        first_Name: firstName || (selectedPatient && selectedPatient.first_Name) || '',
+        last_Name: lastName || (selectedPatient && selectedPatient.last_Name) || '',
+        father_name: fatherName || (selectedPatient && selectedPatient.father_name) || '',
+        date_of_birth: dob || (selectedPatient && selectedPatient.date_of_birth) || null,
+        age: age || (selectedPatient && selectedPatient.age) || '',
+        age_Unit: ageUnit || (selectedPatient && selectedPatient.age_Unit) || '',
+        gender: gender || (selectedPatient && selectedPatient.gender) || '',
+        Mobile_number: mobileNumber || (selectedPatient && selectedPatient.Mobile_number) || '',
+        street1: street1 || (selectedPatient && selectedPatient.street1) || '',
+        street2: street2 || (selectedPatient && selectedPatient.street2) || '',
+        city_village: cityVillage || (selectedPatient && selectedPatient.city_village) || '',
+        district: district || (selectedPatient && selectedPatient.district) || '',
+        state: state || (selectedPatient && selectedPatient.state) || '',
+        country: country || (selectedPatient && selectedPatient.country) || '',
       };
+      
+  console.log(updatedData);
 
       if (isDataChanged) {
         const response = await fetch(
@@ -641,7 +639,7 @@ const CheckboxApp = ({ uhid }) => {
           resetFormFields();
           setSubmitDisabled(false);
           setShowUpdateSuccessMessage(false);
-          setShowSubmit(true)
+          setShowSubmit(true);
           setUpdating(false);
         }, 4000);
         setShowInputs(!showInputs)
@@ -670,17 +668,19 @@ const CheckboxApp = ({ uhid }) => {
     try {
       const searchQuery = uhidInput || mobileNumberInput;
 
-     if (!uhidInput && !mobileNumberInput) {
-        // If either uhidInput or mobileNumberInput is empty, set red borders
-        setShowRedBorders1(true);
-  
-        // Reset red borders after 2000 milliseconds (2 seconds)
-        setTimeout(() => {
-          setShowRedBorders1(false);
-        }, 2000);
-  
-        return;
-      }
+    if (!searchQuery) {
+      // setShowAlert(true);
+      // setAlertMessage('Please enter UHID or Mobile Number.');
+      setShowRedBorders1(true)
+
+      setTimeout(() => {
+        // setShowAlert(false);
+        // setAlertMessage('');
+        setShowRedBorders1(false);
+      }, 2000);
+
+      return;
+    }
 
       const response = await axios.get(
         `${config.apiUrl}/registration/patient/search`,
@@ -694,9 +694,19 @@ const CheckboxApp = ({ uhid }) => {
       const data = response.data;
       setEditUpdate(data);
       setPatientData(data);
+      if (Array.isArray(data) && data.length > 1) {
+        // Multiple patients found for the same mobile number
+  
+        // Set the list of patients with the same mobile number
+        setMultiplePatients(data);
+        setTablehide(false); // Show the table
+        console.log('Multiple Patients:', data);
+        return;
+      }
 
-      if (data && data.uhid) {
+     else if (data && data.uhid) {
         setIsAllAre(true);
+        setSelectedPatient(data);
         const patientData = data;
 
         setTitle(patientData.Title || "");
@@ -730,6 +740,7 @@ const CheckboxApp = ({ uhid }) => {
         );
 
         setShowSubmit(false);
+        setTablehide(true);
 
         setTimeout(() => {
           setShowAlert(false);
@@ -769,12 +780,155 @@ const CheckboxApp = ({ uhid }) => {
   const handleIconClick = () => {
     setShowInputs(!showInputs);
   };
-
-  return (
-    
-    <div className="container m-2">
+  const handlePatientSelect = (selectedPatient) => {
+    console.log('Selected Patient:', selectedPatient);
+    setEditedData(selectedPatient);
+    setSelectedPatient(selectedPatient);
   
-   
+    setSelectedPatientUHID(selectedPatient.uhid);
+    setIsAllAre(true);
+    setTablehide(true);
+    
+  
+  
+    setTitle(selectedPatient.Title || '');
+    setFirstName(selectedPatient.first_Name || '');
+    setLastName(selectedPatient.last_Name || '');
+    setFatherName(selectedPatient.father_name || '');
+  
+    const dateOfBirthString = selectedPatient.date_of_birth;
+    setDob(
+      dateOfBirthString
+        ? format(new Date(dateOfBirthString), 'yyyy-MM-dd')
+        : null
+    );
+  
+    setAge(selectedPatient.age || '');
+    setAgeUnit(selectedPatient.age_Unit || '');
+    setGender(selectedPatient.gender || '');
+    setMobileNumber(selectedPatient.Mobile_number || '');
+    setAadhaarNumber(selectedPatient.aadhar_number || '');
+    setStreet1(selectedPatient.street1 || '');
+    setStreet2(selectedPatient.street2 || '');
+    setCityVillage(selectedPatient.city_village || '');
+    setDistrict(selectedPatient.district || '');
+    setState(selectedPatient.state || '');
+    setCountry(selectedPatient.country || '');
+  
+    setShowSubmit(false);
+  
+    setTimeout(() => {
+      setShowAlert(false);
+      setAlertMessage('');
+    }, 2000);
+  };
+  const handleSearchInputChange = (e) => {
+    const newSearchTerm = e.target.value;
+    setSearchTerm(newSearchTerm);
+  };
+  
+
+  
+  const clearSearch = () => {
+    setSearchTerm('');
+    setFilteredPatients([]);
+  };
+  return (
+<>
+
+{showHistory && (
+      <div className="h-full border bg-gray-50 pl-10 pr-8  pt-6 pb-8">
+        <input
+        type="text"
+        placeholder="Search by patient name"
+        value={searchTerm}
+        onChange={handleSearchInputChange}
+        className="px-4 py-2 border mb-4  mr-3 float-right placeholder-gray-500"
+      />
+
+      {/* Clear search button */}
+      {searchTerm && (
+        <button className="px-4 py-2  float-right bg-cyan-700 text-white" onClick={clearSearch}>
+          Clear
+        </button>
+      )}
+        <button
+     className="top-17 left-45 text-red-500 "
+     onClick={() => setShowHistory(false)}
+    >
+     &#x2716; 
+    </button>
+         <h2 className="text-xl font-bold mb-2">Patient History</h2>
+         
+         <table className="table-auto w-full">
+         <thead className="text-center bg-blue-900 text-white">
+       <tr>
+         <th className="px-4 py-2">UHID</th>
+         <th className="px-4 py-2">Name</th>
+         <th className="px-4 py-2">Father Name</th>
+         <th className="px-4 py-2">Age</th>
+         <th className="px-4 py-2">gender</th>
+         <th className="px-4 py-2">Mobile Number</th>
+         <th className="px-4 py-2">Aadhar number</th>
+       </tr>
+     </thead>
+           <tbody>
+           {(searchResults.length > 0 ? searchResults: patientHistory).map((patientData, index) => (
+               <tr key={patientData.uhid} className={index % 2 === 0 ? 'bg-gray-200' : 'bg-white'}>
+             
+                 <td className="border px-4 py-2">{patientData.uhid}</td>
+    
+                 <td className="border px-4 py-2">{`${patientData.Title} ${patientData.first_Name} ${patientData.last_Name}`}</td>
+           <td className="border px-4 py-2">{patientData.father_name}</td>
+                
+           <td className="border px-4 py-2">{patientData.age}</td>
+           <td className="border px-4 py-2">{patientData.gender}</td>
+              
+                 <td className="border px-4 py-2">{patientData.Mobile_number}</td>
+               
+                 <td className="border px-4 py-2">{patientData.aadhar_number}</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
+     )}
+
+
+{!showHistory && (
+    <div className="container m-2">
+     
+
+     
+  <style>
+        {`
+          .print-container {
+            text-align: center;
+           
+           
+          }
+
+          @media print {
+            body {
+              margin: 10px;
+            }
+
+            .print-container {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center; 
+              border: 2px solid black;
+              width: 60%; 
+              height: 40vh; 
+              
+              
+            }
+          }
+        `}
+      </style>
+
       <div className="flex md:items-center float-right p-2">
         <label className="mb-1 mr-2 label-width"> Date:</label>
         <input
@@ -786,16 +940,20 @@ const CheckboxApp = ({ uhid }) => {
       </div>
     
       
-      <div className="h-full border bg-gray-50 bg-white pl-10 pr-8  pt-16 pb-20">
+      <div className="h-full border bg-gray-50 pl-10 pr-8  pt-16 pb-20">
     
         <div>
         <div style={{display:'flex', justifyContent:'flex-start'}}>
           <h2 className="text-xl font-bold">Patient Details</h2>
-          <div onClick={handleIconClick} className="rounded-md float-right">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          <div onClick={handleIconClick} className="ml-5 mt-1" title="Search Patient Details"  >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
+  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
 </svg>
 
+      </div> 
+      
+      <div onClick={openHistory} className="ml-auto mt-1" title="Search Patient History"  >
+      <FontAwesomeIcon icon={faHistory} />
       </div> 
       
         </div>
@@ -819,8 +977,9 @@ const CheckboxApp = ({ uhid }) => {
               border: showRedBorders1 && !uhidInput ? "1px solid red" : "1px solid #ccc",
               padding: "0.5rem",
               borderRadius: "0.25rem",
-              width: "200px",
-              height: "40px"
+              width: "190px",
+              height: "40px",
+              marginLeft:"50px"
             }}
           />
         </div>
@@ -841,15 +1000,16 @@ const CheckboxApp = ({ uhid }) => {
               border: showRedBorders1 && !mobileNumberInput ? "1px solid red" : "1px solid #ccc",
               padding: "0.5rem",
               borderRadius: "0.25rem",
-              width: "200px",
-              height: "40px"
+              width: "190px",
+              height: "40px",
+              marginLeft:"16px"
             }}
           />
         </div>
 
         <button
           onClick={handleSearchClick}
-          className="bg-blue-500 text-white p-2 ml-8 rounded-md "
+          className="bg-blue-500  text-white p-2 ml-8 rounded-md "
         >
           Search
         </button>
@@ -862,6 +1022,7 @@ const CheckboxApp = ({ uhid }) => {
        </div>
        )}
         </div>
+        
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 mt-2">
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
@@ -871,19 +1032,12 @@ const CheckboxApp = ({ uhid }) => {
               <select
                 value={isFirstTimeRegistration ? title : editedData.title}
                 onChange={handleTitleChange}
-                // style={{ backgroundColor: "white", width:'200px', height:'40px' }}
-                // className={`border ${
-                //   showRedBorders && !title
-                //     ? "border-red-500"
-                //     : "border-gray-300"
-                // } 
-                // p-2 rounded-md h-7 fixed-size-input`}
                 style={{
                   backgroundColor: "white",
                   border: showRedBorders && !title ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
+                  width: "189px",
                   height: "40px"
                 }}
                 
@@ -899,7 +1053,7 @@ const CheckboxApp = ({ uhid }) => {
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
-              <label className="mb-1 mr-2 whitespace-nowrap label-width">
+              <label className="mb-1 mr-4 whitespace-nowrap label-width">
                 First Name <span className="mandatory-asterisk">*</span>
               </label>
               <input
@@ -908,24 +1062,20 @@ const CheckboxApp = ({ uhid }) => {
                   isFirstTimeRegistration ? firstName : editedData.firstName
                 }
                 onChange={handleFirstNameChange}
-                // className={`border ${
-                //   showRedBorders && !firstName
-                //     ? "border-red-500"
-                //     : "border-gray-300"
-                // } p-2 rounded-md fixed-size-input`}
                 style={{
                   backgroundColor: "white",
                   border: showRedBorders && !firstName ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "180px",
-                  height: "40px"
+                  width: "190px",
+                  height: "40px",
+                 marginRight:"3px"
                 }}
               />
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
-              <label className="mb-1 mr-2 whitespace-nowrap label-width">
+              <label className="mb-1 mr-3 whitespace-nowrap label-width">
                 Last Name <span className="mandatory-asterisk">*</span>
               </label>
               <input
@@ -938,7 +1088,7 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !lastName ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
+                  width: "190px",
                   height: "40px"
                 }}
               />
@@ -958,10 +1108,11 @@ const CheckboxApp = ({ uhid }) => {
                 style={{
                   backgroundColor: "white",
                   border: showRedBorders && !fatherName ? "1px solid red" : "1px solid #ccc",
-                  padding: "0.5rem",
+                  padding: "0.4rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
+                  width: "189px",
+                  height: "40px",
+                  marginLeft:"2px"
                 }}
                 onChange={handleFatherNameChange}
                
@@ -969,7 +1120,7 @@ const CheckboxApp = ({ uhid }) => {
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
-              <label className="mb-1 mr-3 whitespace-nowrap label-width">
+              <label className="mb-1 mr-4 whitespace-nowrap label-width">
                 Date of Birth
               </label>
               <input
@@ -977,7 +1128,7 @@ const CheckboxApp = ({ uhid }) => {
                 className="border border-gray-300 p-2 rounded-md  fixed-size-input"
                 value={isFirstTimeRegistration ? dob : editedData.dob}
                 onChange={handleDobChange}
-                style={{width:"186px"}}
+                style={{width:"190px"}}
                 max={new Date().toISOString().split("T")[0]}
               />
             </div>
@@ -992,20 +1143,22 @@ const CheckboxApp = ({ uhid }) => {
                 
                   style={{
                     backgroundColor: "white",
-                    border: showRedBorders && !lastName ? "1px solid red" : "1px solid #ccc",
+                    border: showRedBorders && !age && !dob ? "1px solid red" : "1px solid #ccc",
                     padding: "0.5rem",
                     borderRadius: "0.25rem",
-                    width: "105px",
+                    width: "103px",
                     height: "40px"
                   }}
                   value={isFirstTimeRegistration ? age : editedData.age}
                   onChange={handleAgeChange}
+                  readOnly={!!dob} 
                 />
                 <select
                   className="border border-gray-300 rounded-md  p-2 text-sm "
                   value={isFirstTimeRegistration ? ageUnit : editedData.ageUnit}
                   onChange={handleAgeUnitChange}
                   style={{ backgroundColor: "white" }}
+                  readOnly={!!dob} 
                 >
                   <option value="days">Days</option>
                   <option value="months">Months</option>
@@ -1031,7 +1184,7 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !gender ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
+                  width: "188px",
                   height: "40px"
                 }}
                 value={isFirstTimeRegistration ? gender : editedData.gender}
@@ -1054,18 +1207,14 @@ const CheckboxApp = ({ uhid }) => {
                 type="tel"
                 pattern="[0-9]{10}"
                 maxLength="10"
-                // className={`border ${
-                //   showRedBorders && !mobileNumber
-                //     ? "border-red-500"
-                //     : "border-gray-300"
-                // } p-2 rounded-md input-field w-200 fixed-size-input`}
                 style={{
                   backgroundColor: "white",
                   border: showRedBorders && !mobileNumber ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
+                  width: "188px",
+                  height: "40px",
+                  marginLeft:"9px"
                 }}
                 value={
                   isFirstTimeRegistration
@@ -1077,62 +1226,46 @@ const CheckboxApp = ({ uhid }) => {
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
-              <label className="mb-1 mr-10 label-width">
-                Aadhaar No <span className="mandatory-asterisk">*</span>
-              </label>
-              {isallare ? (
-                <input
-                  type="text"
-                  pattern="[0-9]{12}"
-                  maxLength="12"
-                  // className={`border ${
-                  //   showRedBorders && !aadhaarNumber
-                  //     ? "border-red-500"
-                  //     : "border-gray-300"
-                  // } p-2 rounded-md input-field w-full fixed-size-input`}
-                  style={{
-                    backgroundColor: "white",
-                    border: showRedBorders && !aadhaarNumber ? "1px solid red" : "1px solid #ccc",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    width: "200px",
-                    height: "40px"
-                  }}
-                  value={
-                    isFirstTimeRegistration
-                      ? aadhaarNumber
-                      : editedData.aadhaarNumber
-                  }
-                  onChange={handleAadhaarNumberChange}
-                  readOnly
-                />
-              ) : (
-                <input
-                  type="text"
-                  pattern="[0-9]{12}"
-                  maxLength="12"
-                  // className={`border ${
-                  //   showRedBorders && !aadhaarNumber
-                  //     ? "border-red-500"
-                  //     : "border-gray-300"
-                  // } p-2 rounded-md input-field w-200 fixed-size-input`}
-                  style={{
-                    backgroundColor: "white",
-                    border: showRedBorders && !aadhaarNumber ? "1px solid red" : "1px solid #ccc",
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    width: "200px",
-                    height: "40px"
-                  }}
-                  value={
-                    isFirstTimeRegistration
-                      ? aadhaarNumber
-                      : editedData.aadhaarNumber
-                  }
-                  onChange={handleAadhaarNumberChange}
-                />
-              )}
-            </div>
+  <label className="mb-1 mr-10 label-width">
+    Aadhaar No <span className="mandatory-asterisk">*</span>
+  </label>
+  {isallare ? (
+    <input
+      type="tel"
+      pattern="[0-9]{10}"
+      maxLength="10"
+      style={{
+        backgroundColor: "white",
+        border: showRedBorders && !aadhaarNumber ? "1px solid red" : "1px solid #ccc",
+        padding: "0.5rem",
+        borderRadius: "0.25rem",
+        width: "188px",
+        height: "40px",
+        marginLeft: "9px"
+      }}
+      value={isFirstTimeRegistration ? aadhaarNumber : editedData.aadhaarNumber}
+      onChange={handleAadhaarNumberChange}
+      readOnly
+    />
+  ) : (
+    <input
+      type="text"
+      pattern="[0-9]{12}"
+      maxLength="12"
+      style={{
+        backgroundColor: "white",
+        border: showRedBorders && !aadhaarNumber ? "1px solid red" : "1px solid #ccc",
+        padding: "0.5rem",
+        borderRadius: "0.25rem",
+        width: "188px",
+        height: "40px",
+        marginLeft: "9px"
+      }}
+      value={isFirstTimeRegistration ? aadhaarNumber : editedData.aadhaarNumber}
+      onChange={handleAadhaarNumberChange}
+    />
+  )}
+</div>
           </div>
         </div>
 
@@ -1143,57 +1276,36 @@ const CheckboxApp = ({ uhid }) => {
               <label className="mb-1 mr-2 whitespace-nowrap label-width">
                 Country <span className="mandatory-asterisk">*</span>
               </label>
-              <select
-                // className={`border ${
-                //   showRedBorders && !country
-                //     ? "border-red-500"
-                //     : "border-gray-300"
-                // } p-2 rounded-md input-field w-full fixed-size-input`}
-                style={{
-                  backgroundColor: "white",
-                  border: showRedBorders && !country ? "1px solid red" : "1px solid #ccc",
-                  padding: "0.5rem",
-                  borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
-                }}
-                // style={{ backgroundColor: "white", width:'180px', height:'40px' }}
-                value={isFirstTimeRegistration ? country : editedData.country}
-                onChange={handleCountryChange}
-              >
-                <option value="">Select Country</option>
-                <option value="India">India</option>
-              </select>
+              <input
+    type="text"
+    className="border border-gray-300 p-2  rounded-md "
+    style={{
+      width: "190px", 
+      height: "40px",
+      marginLeft:"30px" 
+    }}
+    value={country}
+    onChange={handleCountryChange}
+    readOnly
+  />
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
               <label className="mb-1 mr-2 whitespace-nowrap label-width">
                 State <span className="mandatory-asterisk">*</span>
               </label>
-              <select
-                // className={`border ${
-                //   showRedBorders && !state
-                //     ? "border-red-500"
-                //     : "border-gray-300"
-                // } p-2 rounded-md  fixed-size-input`}
-                style={{
-                  backgroundColor: "white",
-                  border: showRedBorders && !state ? "1px solid red" : "1px solid #ccc",
-                  padding: "0.5rem",
-                  borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
-                }}
-                // style={{ backgroundColor: "white", width:'200px', height:'40px' }}
-                value={state}
-                onChange={handleStateChange}
-              >
-                <option value="">Select State</option>
-                <option value="Tamil Nadu">Tamil Nadu</option>
-                <option value="Kerala">Kerala</option>
-                <option value="Maharashtra">Maharashtra</option>
-                <option value="Andhra Pradesh">Andhra Pradesh</option>
-              </select>
+              <input
+    type="text"
+    className="border border-gray-300 p-2 rounded-md "
+    style={{
+      width: "190px", 
+      height: "40px",
+      marginLeft:"15px" 
+    }}
+    value={state}
+    onChange={handleStateChange}
+    readOnly
+  />
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
@@ -1211,7 +1323,7 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !district ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
+                  width: "190px",
                   height: "40px"
                 }}
                 // style={{ backgroundColor: "white", width:'200px', height:'40px' }}
@@ -1245,8 +1357,9 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !street1 ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
+                  width: "190px",
+                  height: "40px",
+                  marginLeft:"38px"
                 }}
                 value={isFirstTimeRegistration ? street1 : editedData.street1}
                 onChange={handleStreet1Change}
@@ -1270,8 +1383,9 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !street2 ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
+                  width: "190px",
+                  height: "40px",
+                  marginLeft:"31px"
                 }}
                 value={isFirstTimeRegistration ? street2 : editedData.street2}
                 onChange={handleStreet2Change}
@@ -1279,7 +1393,7 @@ const CheckboxApp = ({ uhid }) => {
             </div>
 
             <div className="flex flex-col items-start md:flex-row md:items-center md:mt-0">
-              <label className="mb-1 mr-2 whitespace-nowrap label-width">
+              <label className="mb-1 mr-1 whitespace-nowrap label-width">
                 Town/Village <span className="mandatory-asterisk">*</span>
               </label>
               <input
@@ -1289,8 +1403,9 @@ const CheckboxApp = ({ uhid }) => {
                   border: showRedBorders && !cityVillage ? "1px solid red" : "1px solid #ccc",
                   padding: "0.5rem",
                   borderRadius: "0.25rem",
-                  width: "200px",
-                  height: "40px"
+                  width: "189px",
+                  height: "40px",
+                
                 }}
                 value={
                   isFirstTimeRegistration ? cityVillage : editedData.cityVillage
@@ -1348,51 +1463,115 @@ const CheckboxApp = ({ uhid }) => {
         )}
       </div>
 
-      {/* {showIdCard && (
-        <div className="overlay " ref={printRef}>
-          <div className="border-2 border-black p-2 w-96 bg-white">
-            <button
-              className="absolute top-2 right-2 text-red-500 cursor-pointer"
-              onClick={() => {
-                handleClose();
-              }}
-            >
-              &#10006; 
-            </button>
-            <div className="flex flex-col items-center">
-              <h1 className="text-black ">ID CARD</h1>
-              <div className="flex">
-                <div className="w-3/5 ml-2">
-                  <p className="text-black ">UHID: {idCardData.uhid}</p>
-                  <p className="text-black">Name: {idCardData.name}</p>
-                  <p className="text-black">Age: {idCardData.age}</p>
-                  <p className="text-black">District: {idCardData.district}</p>
-                  <p className="text-black">
-                    Mobile Number: {idCardData.mobileNumber}
-                  </p>
-                </div>
-                <div className="w-1/2 flex justify-end mr-4">
-                   <img
-                    src="/path/to/photo.jpg"
-                    alt="not found"
-                    className="w-24 h-24 bg-gray-300 square-full"
-                  />
-                </div>
+
+
+
+      {showIdCard && (
+  <div className="overlay print-container" ref={printRef}>
+    <div className="print-container fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-black p-4 shadow-lg print:w-full">
+      <button
+        className="absolute top-2 right-2 text-red-500 cursor-pointer"
+        onClick={() => {
+          handleClose();
+        }}
+      >
+        &#10006;
+      </button>
+      <div ref={componentRef} className="print-container">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center mb-4">
+            <img
+              src={logo}
+              alt="Hospital Logo"
+              className="w-30 h-20 mr-2"
+            />
+            <h1 className="text-indigo-800 text-4xl">Linga Dental Clinic</h1>
+          </div>
+          <div className="flex">
+            <div className="w-3/5 ml-2">
+              <div className="grid grid-cols-2 gap-2">
+                <p className="text-black font-bold">UHID:</p>
+                <p className="text-black">{idCardData.uhid}</p>
+                <p className="text-black font-bold">Name:</p>
+                <p className="text-black">{idCardData.name}</p>
+                <p className="text-black font-bold">Age:</p>
+                <p className="text-black">{idCardData.age}</p>
+                <p className="text-black font-bold">District:</p>
+                <p className="text-black">{idCardData.district}</p>
+                <p className="text-black font-bold">Mobile Number:</p>
+                <p className="text-black">{idCardData.mobileNumber}</p>
               </div>
-              <div className="mt-3">
-                <Barcode value={idCardData.uhid} />
-              </div>
-              <button
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 mt-4 ml-2"
-                onClick={handlePrint}
-              >
-                Print
-              </button>
+            </div>
+            <div className="w-1/2 flex justify-end mr-2">
+              <img
+                src={profile}
+                alt="not found"
+                className="w-30 h-30 bg-gray-300 rounded-full print:w-40 print:h-40"
+              />
             </div>
           </div>
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 mt-4 ml-2"
+            onClick={handlePrint}
+          >
+            Print
+          </button>
         </div>
-      )} */}
+      </div>
     </div>
+  </div>
+)}
+
+
+
+{!tablehide && multiplePatients && multiplePatients.length > 0 && (
+  <div className=" fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 text-black p-4 rounded-md">
+    <button
+      className="absolute top-2 right-2 text-red-500"
+      onClick={() => setTablehide(true)}
+    >
+      &#x2716; 
+    </button>
+    <h5 className="text-center mb-4">Please Select a Patient:</h5>
+    <table className="w-full table-auto">
+      <thead className="text-center">
+        <tr>
+          <th className="px-4 py-2">UHID</th>
+          <th className="px-4 py-2">First Name</th>
+          <th className="px-4 py-2">Last Name</th>
+          <th className="px-4 py-2">Father Name</th>
+          <th className="px-4 py-2">Age</th>
+          <th className="px-4 py-2">Aadhar Number</th>
+          <th className="px-4 py-2">Mobile Number</th>
+          <th className="px-4 py-2">Select</th>
+        </tr>
+      </thead>
+      <tbody>
+        {multiplePatients.map((patient, index) => (
+          <tr key={index} className="text-center">
+            <td className="border px-4 py-2">{patient.uhid}</td>
+            <td className="border px-4 py-2">{patient.first_Name}</td>
+            <td className="border px-4 py-2">{patient.last_Name}</td>
+            <td className="border px-4 py-2">{patient.father_name}</td>
+            <td className="border px-4 py-2">{patient.age}</td>
+            <td className="border px-4 py-2">{patient.aadhar_number}</td>
+            <td className="border px-4 py-2">{patient.Mobile_number}</td>
+            <td className="border px-4 py-2">
+              <button className="bg-blue-500 text-white px-2 py-1 rounded" onClick={() => handlePatientSelect(patient)}>
+                Select
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
+
+    </div>
+)}
+    </>
+ 
   );
 };
 

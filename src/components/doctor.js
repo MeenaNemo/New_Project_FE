@@ -46,10 +46,11 @@ const PrintScreen = ({ patientDetails, prescriptionData, onClose }) => {
               LINGA DENTAL CARE
             </h2>
             <p className="text-lg font-semibold mb-2 text-center">
-              585 Anna Nagar, Madurai - 625020{" "}
+             Shree Meenakshi Complex, Alaguraja Nagar{" "}
             </p>
+            <p className=" font-semibold mb-2 text-center">AlagarKovil Main Road, Near Maruthangulam Bus Stop, Madurai - 625007. {" "}</p>
             <p className="text-lg font-semibold mb-4 text-center">
-              Phno : +91 9632587410, 0452-25252525 E-mail: hmshospital@gmail.com{" "}
+              Phno : +91 __________, 0452-______ E-mail: ldchospital@gmail.com{" "}
             </p>
           </div>
           <div>
@@ -186,7 +187,7 @@ const Doctor = () => {
     uhid: "",
     age: "",
     mobileNumber: "",
-    doctor: "Dr. Vinoth Kumar",
+    doctor: "Dr.  R. Vinoth Kumar (BDS)",
    
     date: "",
     prescription: "",
@@ -226,8 +227,9 @@ const Doctor = () => {
         night: false,
       },
     ]);
-    setErrors({}); // Clear any existing errors
+    setErrors({}); 
   };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
@@ -259,7 +261,7 @@ const Doctor = () => {
         mobileNumber: patientDetails.Mobile_number,
         gender: patientDetails.gender,
         age: patientDetails.age,
-        doctorName: 'Dr. Vinoth Kumar',
+        doctorName: 'Dr.  R. Vinoth Kumar (BDS)',
         date: currentDate,
         medicalaffiction: medicalAffiction,  
         prescription: prescriptionData
@@ -270,7 +272,7 @@ const Doctor = () => {
         console.log(response.data.message);
         setIsPrintTemplateVisible(true);
 
-        clearFormFields();
+        // clearFormFields();
       } else {
         console.error('Failed to save prescription:', response.data.error);
       }
@@ -379,7 +381,7 @@ const Doctor = () => {
 
   const handleOpenHistoryModal = () => {
     setHistoryModalOpen(true);
-    
+    setIsPrintTemplateVisible(false);
     handlemodel();
   };
   
@@ -418,7 +420,7 @@ const Doctor = () => {
 
 
   return (
-    <div className="p-8 flex flex-col bg-blue-200 h-screen w-100">
+    <div className="p-8 flex flex-col border h-100 w-98 m-2">
       
       <div className="flex flex-col">
         
@@ -479,7 +481,7 @@ const Doctor = () => {
             <div>
               <div className="flex space-x-4">
                 <div className="flex-1">
-                  <label  className={`border p-2 w-full rounded-md focus:outline-none ml-12 transition duration-100 ${errors.medicalaffiction? 'border-red-500' : 'border-gray-300'}`}>Medical Affliction</label>
+                  <label  className={`className="block text-sm font-bold text-gray-700" ${errors.medicalaffiction? 'border-red-500' : 'border-gray-300'}`}>Medical Affliction</label>
                   <input
   type="text"
   placeholder="Enter Current Problem"
@@ -494,16 +496,16 @@ const Doctor = () => {
               </div>
             </div>
           </div>
-          <div>
-          <span className="flex items-center">
-    <FontAwesomeIcon icon={faHistory} className="text-blue-500 mr-2" />
+          <div style={{display:'flex'}}>
+          <span className="flex items-center text-white py-2 px-4 rounded-md mr-10" style={{background:'green'}}>
+    <FontAwesomeIcon icon={faHistory} className="text-white mr-2" />
     <button onClick={handleOpenHistoryModal}> History</button>
   </span>
-            <button onClick={handleOpenprescriptionmodal} className="flex items-center text-black py-2 px-4 rounded-md">
+            <button onClick={handleOpenprescriptionmodal} className="flex items-center text-white py-2 px-4 rounded-md " style={{background:'blue'}}>
               <FontAwesomeIcon icon={faPrescriptionBottleAlt} className="mr-2" />
               <b>Prescription</b>
             </button>
-            <input type="file" />
+            {/* <input type="file" /> */}
           </div>
           {isprescription && (
             <div className={`fixed inset-0 overflow-y-auto ${isprescription ? "backdrop-filter backdrop-blur-sm" : ""} transition-all duration-300 ${isprescription ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
@@ -674,10 +676,6 @@ const Doctor = () => {
           </div>
         </div>
       )}
-
-
-      
-          
             <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-4" onClick={handleSubmit}>Submit</button>
             <button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={() => {}}>Cancel</button>
           </div>
